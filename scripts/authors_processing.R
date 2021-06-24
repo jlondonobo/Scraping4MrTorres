@@ -1,48 +1,36 @@
-library(stringr)
-library(magrittr)
-# Se leen unicamente nombres de documentos y autores
-setwd("/Users/puchu/Documents/EAFIT Completo/Semestre Actual/Semillero de Investigación/Proyectos Daniel/Data Scarping")
-datos <- read.csv("datos_borradores_banrep.csv")
-datos <- datos[,c(1,2)]
+#-------------------------------------------#
+#--------------| SETUP |--------------------#
+#-------------------------------------------#
 
-#Se separan los autores en columnas diferentes
-autores <- str_split_fixed(datos$Authors,";",n = Inf)
+library(stringr)     #manipulacion de texto
+library(tidyverse)   #manipulacion de dats
+library(here)        #acceder a direcciones locales
 
-datos <- datos[1]
+#Importando titulo y nombres de autores
+articles_metadata <- read.csv(here('data', 'raw', 'articles_metadata.csv'))%>%
+  select(1,2)
 
-tab_in_out <- c()
-for(i in 1:nrow(autores)){
+#Convirtiendo a formato tidy
+#-- implica separar autores cada uno en una fila (duplicando titulo)
+articles_dup <- articles_metadata %>%
+  separate_rows(Authors, sep = ';')
 
-# Se halla la cantidad de columnas que tienen datos para cada fila
-n <- sum(autores[i,] != "")
+#Obteniendo todas las combinaciones de autores
+combinaciones <- articles_dup %>%
+  group_by(Title) %>%
+  filter(n() > 1) %>%
+  split(.$Title) %>%
+  map(., 2) %>%
+  map(~combn(.x, m = 2)) %>%
+  map(~t(.x)) %>%
+  map_dfr(as_tibble)
 
-# Se hallan todas las combinaciones posibles de estos datos
-# Utilizo el if pues cuando hay solo un autor (n=1) no se pueden hacer combinaciones de 2.
-# Lo que hace el codigo es crear un vector con el autor y un espacio blanco.
-d <- if(n>1){
-  combn(autores[i,1:n],2)
-} else {c(autores[i,1],"")}
+#Renombrando y anadiendo columnas
+combinaciones <- combinaciones%>%
+  rename(source=1, target=2)%>%
+  mutate(weight=1, type = "Undirected")
 
-# Las combinaciones se convierten en una matriz para poder trasponerla 
-# añado el if para los casos en que solo hay un autor pues ncol y nrow no se pueden utilizar
-# para vectores [solo funcionan en matrices]. NROW y NCOL si funcionan para vectores.
-d <- if(n>1){
-matrix(d, nrow = nrow(d), ncol = ncol(d))
-} else {matrix(d, NROW(d), NCOL(d))}
-
-# Se traspone la matriz para que quede en 2 columnas
-d <- t(d)
-e <- matrix(datos[i,1], nrow = nrow(d), ncol = 1)
-
-# Se combinan la columna de titulos y la columna de investigadores
-pi <- cbind(e,d)
-
-# Se pone el nombre a la cada columna
-colnames(pi)<-c("Nombre","Input", "Output")
-
-# Se combinan las columnas de cada paper
-tab_in_out <- rbind(tab_in_out, pi)
-}
-
+#Escribiendo archivo a csv
+write.csv(combinaciones, here('data', 'processed', 'authors_nodes.csv'), row.names = F)
 
 
