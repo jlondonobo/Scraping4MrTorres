@@ -1,33 +1,33 @@
-#------------------- Web Scraping Banrep ------------------------------------#
-library(rvest)
-library(magrittr)
-setwd("/Users/puchu/Documents/EAFIT Completo/Semestre Actual/Semillero de Investigación/Proyectos Daniel/Data Scarping")
+#----------------------------------------------------------------------------#
+#-------------------| SCRAPING BANREP'S ARTICLES |---------------------------#
+#----------------------------------------------------------------------------#
 
-#Numero de documentos que se quiere revisar (n)
-#n <- 1059
+library(rvest)        #web-scraping
+library(tidyverse)    #manipulacion de datos
 
+# Extrayendo links de documentos ------------------------------------------
 
-#---------------
+#Parametros
+n <- 1059 #numero de documentos a extraer
 
-list_docum <- c()
-# Se hace un loop para tomar todas las páginas y crear listado con todos los documentos
-for (i in seq(0,1059,20)) {
+#Extrayendo url de cada articulo
+list_doc <- c()
+for (i in seq(0,n,20)) {
+  #1. conectando con pagina web
   url <- paste0("http://repositorio.banrep.gov.co/handle/20.500.12134/5018/browse?rpp=20&sort_by=2&type=dateissued&offset=",i,"&etal=-1&order=DESC")
   web <- read_html(url)
+  #2. extrayendo url de los 20 articulos en la pagina
   docum_pag <- web%>%
     html_nodes(".artifact-title a")%>%
     html_attr("href")
-  links <- paste0("http://repositorio.banrep.gov.co",docum_pag)
-  list_docum <- c(list_docum,links )
+  #3. creando urls completas y uniendo a lista de todas las urls
+  links <- paste0("http://repositorio.banrep.gov.co", docum_pag)
+  list_doc <- c(list_doc,links )
+  #4. pasando a proxima pagina
 }
 
-#Se borran las variables innecesarias (paso innecesario)
-rm(docum_pag)
-rm(links)
-rm(url)
-rm(i)
-rm(web)
-  
+#Removiendo variables
+rm(docum_pag, links, url, i, web)
 
 invg_name<- c() 
 author <- c()
@@ -39,51 +39,50 @@ jel <- c()
 keywords <- c()
 p_claves <- c()
 
-# Estos son especiales por el codigo de resumen y abstract (necesarios)
-# NO TOCAR
+#Resumen y abstract
 res <- c()
 abs <- c()
 
-for(j in list_docum){
-  #El paso url <- j se puede obviar, pero lo hago por mantener el orden
-  url <- j
-  web <- read_html(url)
-  #Scraping de nombres
+for(article_url in list_doc){
+  #1. conectando con pagina web
+  web <- read_html(article_url)
+  #2. extrayendo elementos
+  #titulo
   nom <- web%>%
     html_nodes(".first-page-header")%>%
     html_text()
   invg_name <- c(invg_name, nom)
   
-  #Scraping de autores
+  #autores
   aut <- web%>%
     html_nodes(".simple-item-view-authors a")%>%
     html_text()%>%
     paste(., collapse = ";")
   author<-c(author,aut)
   
-  #Scraping del código
+  #codigo
   co <- web%>%
     html_nodes(".simple-item-view-relation-isversionof div")%>%
     html_text()
   code <- c(code, co)
   
-  #Scraping de fecha
+  #fecha de publicacion
   fe <- web%>%
     html_nodes(".simple-item-view-date")%>%
     html_text()%>%
     .[1]%>%
     gsub("\nFecha de publicación","",.)
   
-  # Esta parte añade un -01 en caso de que el docu no tenga dia de pub.
-  # esto se hace para que el as.Date lo pueda entender.
-  if(nchar(fe)==7){
-    fe <- paste0(fe,"-01")
-  } else{}
-  #fe <- as.Date(fe, format = "%Y-%m-%d")
+    #si fecha esta en formato %Y-%m llenamos dia con primero del mes
+    if(nchar(fe)==7){
+      fe <- paste0(fe,"-01")
+    }
   
   date <- c(date, fe)
   
-  #Scraping del Abstract y resumen
+  #resumen y abstract
+  #-- al momento de escribir este codigo no sabia hacer seleccion usando xpath
+  #-- este cofigo puede hacerse muchisimo mas corto usando xpath
   
   b <- c()
   for (l in 2:4){
@@ -117,9 +116,6 @@ for(j in list_docum){
   
   abstract <- c(abstract, abs)
   resumen <- c(resumen, res)
-  
-    
-    
   
 #Scraping de JEl --------------------------- REVISAR -----------------
 
@@ -180,7 +176,7 @@ for(j in list_docum){
 }
 
 # Se eliminan variables residuos por estética
-rm(res,abs,aut,co,fe,j,JEL,key,nom,pal,r,a,n,url,list_docum,web,b)
+rm(res,abs,aut,co,fe,j,JEL,key,nom,pal,r,a,n,url,list_doc,web,b)
 
 #Se crea un data frame para luego escribirlo.
 tabla <- data.frame(Title=invg_name,
@@ -192,8 +188,7 @@ tabla <- data.frame(Title=invg_name,
                     Keywords = keywords,
                     Resumen = resumen,
                     Abstract = abstract)
-write.csv(tabla, file = "datos_borradores_banrep.csv", row.names = F)
 
-# NOTA IMPORTANTE a las fechas que no tienen "dia" se les asignó el valor
-# para día de 01
+write.csv(tabla, file = here('data', 'raw', 'articles_metadata.csv'), row.names = F)
+
 
