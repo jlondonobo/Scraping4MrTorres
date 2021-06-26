@@ -18,8 +18,11 @@ articles_metadata <- read.csv(here('data', 'raw', 'articles_metadata.csv'), stri
 summary_corpus <- corpus(articles_metadata, docid_field = "Title", text_field = "Resumen" )
 
 #Tokens (vectors of words for each document)
+own_stopwords <- c("así", "05r", "documento", "cada", "través")
+full_stopwords <- c(stopwords("spanish"), own_stopwords)
+
 tokenized_corpus <- tokens(summary_corpus, remove_punct=T, remove_symbols=T, remove_numbers=T)%>%
-  tokens_remove(stopwords("spanish"), min_nchar=3)
+  tokens_remove(full_stopwords, min_nchar=3)
 
 #Document-feature matrix (matrix counting word appearances in each document of corpus)
 dfm_summaries <- dfm(tokenized_corpus)
@@ -48,16 +51,39 @@ author_lexdiv <- articles_metadata%>%
   left_join(lexdiv)%>%
   group_by(Authors)%>%
   summarise(meanTTR=mean(TTR), n_articles=n())%>%
-  ungroup()%>%
-  arrange(desc(meanTTR))
+  ungroup()
 
 
-  #Plot lexdive por autor
-  ggplot(top_n(author_lexdiv,5,meanTTR), aes(x=Authors, y=meanTTR)) + geom_bar(stat="identity")
-
+  #Plot diversidad lexica por autor (max y min)
+  max_lexdiv_plot <- ggplot(top_n(author_lexdiv,5,meanTTR), aes(x=reorder(Authors, meanTTR), y=meanTTR)) + geom_bar(stat="identity", fill="#F8766D") +
+    ylim(0, 1) +
+    coord_flip()+
+    labs(x="", y="Diversidad léxica")
+  min_lexdiv_plot <- ggplot(top_n(author_lexdiv,-5,meanTTR), aes(x=reorder(Authors, meanTTR), y=meanTTR)) + geom_bar(stat="identity", fill="#00BFC4")+
+    ylim(0, 1)+
+    coord_flip()+
+    labs(x="", y="Diversidad léxica")
   
-  gridExtra::grid.arrange()
+  pdf(here('assets','plots', 'text_analysis', 'lexical_diversity.pdf'))
+  cowplot::plot_grid(max_lexdiv_plot, min_lexdiv_plot, ncol = 1, align="v", labels = c('Max', 'Min'))
+  dev.off()
+  
+#Nube de palabras
 
+#agrupando corpus en solo tres documentos
+dfm_summaries@docvars <- dfm_summaries@docvars%>%
+  mutate(Periodo = case_when(lubridate::year(Date)<=1999 ~ "Precrisis - 1999",
+                             lubridate::year(Date)<=2007 ~ "Precrisis - 2008",
+                             lubridate::year(Date)>2007 ~ "Poscrisis - 2008"))
+dfm_summaries_grouped <- dfm_group(dfm_summaries, group=Periodo)
 
+  #Plot nube de palabras comparativa
+  set.seed(0)
+  pdf(here('assets','plots', 'text_analysis', 'wordcloud.pdf'))
+  quanteda.textplots::textplot_wordcloud(dfm_summaries_grouped,
+                                         min_count = 80,
+                                         labeloffset = -0.02,
+                                         comparison = T)
+  dev.off()
 
 
