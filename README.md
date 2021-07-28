@@ -10,4 +10,4 @@ Capturamos los metadatos de 1059 artículos escritos  entre 1994 y 2018. Nuestra
 Usamos la librería `rvest` para extraer la información dispuesta en el [repositorio del Banco de la República](https://repositorio.banrep.gov.co/handle/20.500.12134/5018/browse?type=dateissuedhttps://repositorio.banrep.gov.co/handle/20.500.12134/5018/browse?type=dateissued). La metodología exacta está dispuesta en el documento `scripts/scraper_metadata.R`.
 
 ## Análisis
-Tras obtener los datos hicimos un análisis de texto y un análisis de redes preliminar. Los resultados de este análisis son presentados en la carpeta `results/`.
+Tras obtener los datos hicimos un análisis de texto y un análisis de redes preliminar. Los resultados de este análisis son presentados en la carpeta `assets/`.
